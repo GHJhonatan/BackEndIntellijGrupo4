@@ -1,5 +1,6 @@
 package com.upc.backendintellijgrupo4.Entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -23,6 +24,7 @@ public class Usuario {
 
     private String correo;
 
+    @JsonIgnore
     @Column(name = "password_hash")
     private String passwordHash;
 
