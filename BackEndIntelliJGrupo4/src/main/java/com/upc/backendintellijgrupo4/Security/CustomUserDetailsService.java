@@ -29,7 +29,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                                 "Usuario no encontrado: " + correo
                         )
                 );
-        
+
         String rolNombre = "USER";
         if (usuario.getRol() != null && usuario.getRol().getNombre() != null) {
             rolNombre = usuario.getRol().getNombre();
