@@ -9,13 +9,20 @@ import org.springframework.security.authentication.dao.DaoAuthenticationProvider
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @Configuration
+@EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
 
@@ -25,7 +32,6 @@ public class SecurityConfig {
     public SecurityConfig(
             CustomUserDetailsService userDetailsService,
             JwtAuthenticationFilter jwtAuthenticationFilter) {
-
         this.userDetailsService = userDetailsService;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
@@ -34,7 +40,6 @@ public class SecurityConfig {
     public AuthenticationManager authenticationManager(
             AuthenticationConfiguration authenticationConfiguration)
             throws Exception {
-
         return authenticationConfiguration.getAuthenticationManager();
     }
 
@@ -45,14 +50,22 @@ public class SecurityConfig {
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
-
-        DaoAuthenticationProvider provider =
-                new DaoAuthenticationProvider();
-
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
         provider.setUserDetailsService(userDetailsService);
         provider.setPasswordEncoder(passwordEncoder());
-
         return provider;
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(List.of("*"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("*"));
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 
     @Bean
@@ -60,145 +73,27 @@ public class SecurityConfig {
             HttpSecurity http) throws Exception {
 
         http
-                // API REST
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
-
                 .authorizeHttpRequests(auth -> auth
 
-                        // =========================================
-                        // SWAGGER
-                        // =========================================
-                        // Swagger puede abrirse sin JWT.
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
                         .requestMatchers(
-                                "/swagger-ui.html",
+                                "/api/auth/**",
                                 "/swagger-ui/**",
-                                "/v3/api-docs/**"
+                                "/v3/api-docs/**",
+                                "/swagger-ui.html"
                         ).permitAll()
 
-
-                        // =========================================
-                        // LOGIN
-                        // =========================================
-                        // El login es libre porque necesitamos
-                        // enviar las credenciales para obtener
-                        // el JWT.
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/auth/login"
-                        ).permitAll()
-
-
-                        // =========================================
-                        // ADMIN - ROLES
-                        // =========================================
-                        .requestMatchers(
-                                "/api/roles/**"
-                        ).hasRole("ADMIN")
-
-
-                        // =========================================
-                        // ADMIN - USUARIOS
-                        // =========================================
-                        .requestMatchers(
-                                "/api/usuarios/**"
-                        ).hasRole("ADMIN")
-
-
-                        // =========================================
-                        // CONSULTAR CONTENIDO
-                        // ADMIN + USER
-                        // =========================================
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/idiomas/**",
-                                "/api/niveles/**",
-                                "/api/lecciones/**",
-                                "/api/preguntas-evaluacion/**",
-                                "/api/opcion-preguntas/**"
-                        ).hasAnyRole("ADMIN", "USER")
-
-
-                        // =========================================
-                        // CREAR CONTENIDO
-                        // SOLO ADMIN
-                        // =========================================
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/idiomas/**",
-                                "/api/niveles/**",
-                                "/api/lecciones/**",
-                                "/api/preguntas-evaluacion/**",
-                                "/api/opcion-preguntas/**"
-                        ).hasRole("ADMIN")
-
-
-                        // =========================================
-                        // MODIFICAR CONTENIDO
-                        // SOLO ADMIN
-                        // =========================================
-                        .requestMatchers(
-                                HttpMethod.PUT,
-                                "/api/idiomas/**",
-                                "/api/niveles/**",
-                                "/api/lecciones/**",
-                                "/api/preguntas-evaluacion/**",
-                                "/api/opcion-preguntas/**"
-                        ).hasRole("ADMIN")
-
-
-                        // =========================================
-                        // ELIMINAR CONTENIDO
-                        // SOLO ADMIN
-                        // =========================================
-                        .requestMatchers(
-                                HttpMethod.DELETE,
-                                "/api/idiomas/**",
-                                "/api/niveles/**",
-                                "/api/lecciones/**",
-                                "/api/preguntas-evaluacion/**",
-                                "/api/opcion-preguntas/**"
-                        ).hasRole("ADMIN")
-
-
-                        // =========================================
-                        // PROGRESO DE LECCIONES
-                        // ADMIN + USER
-                        // =========================================
-                        .requestMatchers(
-                                "/api/progreso-lecciones/**"
-                        ).hasAnyRole("ADMIN", "USER")
-
-
-                        // =========================================
-                        // RESULTADOS DE EVALUACIÓN
-                        // ADMIN + USER
-                        // =========================================
-                        .requestMatchers(
-                                "/api/resultados-evaluacion/**"
-                        ).hasAnyRole("ADMIN", "USER")
-
-
-                        // =========================================
-                        // TODO LO DEMÁS
-                        // =========================================
-                        // Cualquier endpoint que no esté
-                        // expresamente permitido necesita JWT.
                         .anyRequest().authenticated()
                 )
-
-                // No se utilizan sesiones HTTP.
-                // Cada petición protegida debe enviar su JWT.
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.STATELESS
                         )
                 )
-
-                // Proveedor de autenticación
                 .authenticationProvider(authenticationProvider())
-
-                // El filtro JWT revisa el token antes
-                // del filtro estándar de autenticación.
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class

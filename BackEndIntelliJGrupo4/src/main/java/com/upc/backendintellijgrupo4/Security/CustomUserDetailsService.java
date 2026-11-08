@@ -7,6 +7,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
@@ -18,6 +19,7 @@ public class CustomUserDetailsService implements UserDetailsService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String correo)
             throws UsernameNotFoundException {
 
@@ -27,12 +29,16 @@ public class CustomUserDetailsService implements UserDetailsService {
                                 "Usuario no encontrado: " + correo
                         )
                 );
+        
+        String rolNombre = "USER";
+        if (usuario.getRol() != null && usuario.getRol().getNombre() != null) {
+            rolNombre = usuario.getRol().getNombre();
+        }
 
         return User.builder()
                 .username(usuario.getCorreo())
                 .password(usuario.getPasswordHash())
-                .authorities("ROLE_" + usuario.getRol().getNombre())
+                .authorities("ROLE_" + rolNombre)
                 .build();
     }
 }
-

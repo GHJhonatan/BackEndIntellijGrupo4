@@ -31,150 +31,102 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain)
             throws ServletException, IOException {
 
-        String authHeader = request.getHeader("Authorization");
-
-        // =====================================================
-        // NO EXISTE TOKEN
-        // =====================================================
-
-        if (authHeader == null || authHeader.isBlank()) {
-
+        String requestURI = request.getRequestURI();
+        if (requestURI != null && requestURI.contains("/api/auth/")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // =====================================================
-        // EL VALOR DEBE SER UN BEARER TOKEN
-        // =====================================================
+        String authHeader = request.getHeader("Authorization");
 
-        if (!authHeader.startsWith("Bearer ")) {
 
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-
-            response.getWriter().write(
-                    "{\"error\":\"Se requiere un token JWT Bearer\"}"
-            );
-
+        if (authHeader == null || authHeader.isBlank()) {
+            filterChain.doFilter(request, response);
             return;
         }
 
-        // =====================================================
-        // EXTRAER JWT
-        // =====================================================
+
+        if (!authHeader.startsWith("Bearer ")) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write(
+                    "{\"error\":\"Se requiere un token JWT Bearer\"}"
+            );
+            return;
+        }
+
 
         String jwt = authHeader.substring(7).trim();
 
         if (jwt.isEmpty()) {
-
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
-
             response.getWriter().write(
                     "{\"error\":\"El token JWT está vacío\"}"
             );
-
             return;
         }
-
-        // =====================================================
-        // VALIDAR QUE TENGA ESTRUCTURA JWT
-        // =====================================================
 
         String[] partes = jwt.split("\\.");
 
         if (partes.length != 3) {
-
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
-
             response.getWriter().write(
                     "{\"error\":\"El valor enviado no es un JWT válido\"}"
             );
-
             return;
         }
 
         try {
 
-            // =================================================
-            // VALIDAR FIRMA Y EXPIRACIÓN
-            // =================================================
-
             if (!jwtService.isTokenValid(jwt)) {
-
                 SecurityContextHolder.clearContext();
-
                 response.setStatus(
                         HttpServletResponse.SC_UNAUTHORIZED
                 );
-
                 response.setContentType("application/json");
-
                 response.getWriter().write(
                         "{\"error\":\"JWT inválido o expirado\"}"
                 );
-
                 return;
             }
 
-            // =================================================
-            // EXTRAER INFORMACIÓN DEL JWT
-            // =================================================
 
-            String correo =
-                    jwtService.extractUsername(jwt);
-
-            String rol =
-                    jwtService.extractRole(jwt);
+            String correo = jwtService.extractUsername(jwt);
+            String rol = jwtService.extractRole(jwt);
 
             if (correo == null ||
                     correo.isBlank() ||
                     rol == null ||
                     rol.isBlank()) {
-
                 SecurityContextHolder.clearContext();
-
                 response.setStatus(
                         HttpServletResponse.SC_UNAUTHORIZED
                 );
-
                 response.setContentType("application/json");
-
                 response.getWriter().write(
                         "{\"error\":\"El JWT no contiene los datos necesarios\"}"
                 );
-
                 return;
             }
 
-            // =================================================
-            // VALIDAR ROL
-            // =================================================
 
             rol = rol.toUpperCase();
 
             if (!rol.equals("ADMIN") &&
                     !rol.equals("USER")) {
-
                 SecurityContextHolder.clearContext();
-
                 response.setStatus(
                         HttpServletResponse.SC_FORBIDDEN
                 );
-
                 response.setContentType("application/json");
-
                 response.getWriter().write(
                         "{\"error\":\"Rol no válido\"}"
                 );
-
                 return;
             }
 
-            // =================================================
-            // CREAR AUTORIDAD
-            // =================================================
 
             String autoridad = "ROLE_" + rol;
 
@@ -194,10 +146,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             .buildDetails(request)
             );
 
-            // =================================================
-            // GUARDAR AUTENTICACIÓN
-            // =================================================
-
             SecurityContextHolder
                     .getContext()
                     .setAuthentication(authentication);
@@ -205,10 +153,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
 
         } catch (Exception e) {
-
-            // =================================================
-            // CUALQUIER ERROR = JWT NO VÁLIDO
-            // =================================================
 
             SecurityContextHolder.clearContext();
 
